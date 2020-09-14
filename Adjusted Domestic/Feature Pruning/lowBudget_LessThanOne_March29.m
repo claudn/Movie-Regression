@@ -1,0 +1,84 @@
+%% Load and split the data
+tic
+
+%import movie data
+movieData = readtable('movies_march_28_lowbudget_NaNs_removed.csv');
+summary(movieData)
+%movieData.AdjustedDomestic=[];
+movieData.AdjustedWorldwide=[];
+movieData.metacritics=[];
+%movieData.title=[];
+movieData.Num_Theatres_Opening = [];
+
+%movieData.Google_Trends=str2double(movieData.Google_Trends);
+
+%movieData.Google_Trends=[];
+
+% movieData.male_18_29_ratings=str2double(movieData.male_18_29_ratings);
+% movieData.male_30_44_ratings=str2double(movieData.male_30_44_ratings);
+% movieData.male_45_plus_ratings=str2double(movieData.male_45_plus_ratings);
+% movieData.female_18_29_ratings=str2double(movieData.female_18_29_ratings);
+% movieData.female_30_44_ratings=str2double(movieData.female_30_44_ratings);
+% movieData.female_45_plus_ratings=str2double(movieData.female_45_plus_ratings);
+
+% movieData.male_18_29_ratings=[];
+% movieData.male_30_44_ratings=[];
+% movieData.male_45_plus_ratings=[];
+% movieData.female_18_29_ratings=[];
+% movieData.female_30_44_ratings=[];
+% movieData.female_45_plus_ratings=[];
+
+% cut everything < 1
+movieData.director_win=[];
+movieData.Family=[];
+movieData.G=[];
+movieData.NC_17=[];
+movieData.Thurs=[];
+movieData.Adventure=[];
+movieData.Music=[];
+movieData.Animation=[];
+movieData.Apr=[];
+movieData.Feb=[];
+movieData.Mar=[];
+movieData.Dec=[];
+movieData.War=[];
+movieData.Tue=[];
+movieData.NR=[];
+movieData.Mystery=[];
+
+[n,~]=size(movieData);
+n70 = round(.7*n);
+nLoops = 50;
+%get standard deviation
+stdev=std(movieData.AdjustedDomestic);
+Error=zeros(nLoops,n-n70);
+PercentE=zeros(nLoops,n-n70);
+
+for jj = 1:nLoops
+    rng(jj);
+    rand70 = randperm(n, n70);
+    movies_train = movieData(rand70, :);
+    movies_test = movieData;
+    movies_test(rand70,:)=[];
+    forest=TreeBagger(500, movies_train, 'AdjustedDomestic','Method','regression');
+    % make predictions
+    preds = predict(forest,movies_test);
+    %error for logs
+    [k,~]=size(movies_test);
+    actualAdjusted = table2array(movies_test(:,11));
+    for ii=1:k
+        Error(jj,ii)=abs(exp(preds(ii))-exp(actualAdjusted(ii)));
+    end
+    for ii=1:k
+        PercentE(jj,ii)=abs(exp(preds(ii))-exp(actualAdjusted(ii)))/exp(actualAdjusted(ii));
+    end
+end
+%view(forest.Trees{1},'Mode','graph')
+meanError= mean(Error(:))
+medianError= median(Error(:))
+% meanPercentE = mean(PercentE(:))*100
+% medianPercentE = median(PercentE(:))*100
+meanStdevE=meanError/stdev
+medianStdevE=medianError/stdev
+
+time=toc
